@@ -57,6 +57,7 @@ local function actor(nm, fields, methods)
         GetAttachParentActor = function(self) return self.__parent end,
         K2_GetActorLocation = function(self) return self.__loc end,
         GetOwner = function(self) return self.__owner end,
+        GetFullName = function(self) return "Class " .. self.__name end,
     }
     for k, v in pairs(methods or {}) do base[k] = v end
     return setmetatable(a, { __index = function(t, k)
@@ -345,6 +346,26 @@ do -- 14. hooks
     NOW = 20000; hooks["/Game/Ride/Character/Blueprints/GM_FirstPerson.GM_FirstPerson_C:RestartFromCheckpoint"]()
     eq(M.pending(), "restart from checkpoint", "the hook requests a restore")
     M.tick(); NOW = 30000; M.tick()
+end
+
+do -- 14. players whose saved damage arrives after the restore (joiners) are healed inside their window only
+    reset_world()
+    local v = make_vehicle({ "Roof" }, {}, {}); v.__name = "BP_Vehicle_Winnebago_01_C_0"
+    register("BP_Vehicle_Winnebago_01_C", { v })
+    local host = actor("Host", { CurrentDamage = tarray({}), LastSeenTotalDamage = 0 }); register("BP_FirstPersonCharacter_C", { host })
+    NOW = 40000; M.watch_players()
+    eq(host.CurrentDamage:GetArrayNum(), 0, "nothing before a load happened")
+    M.request("save loaded"); NOW = 40010; M.tick()                         -- restore ran
+    host.CurrentDamage = tarray({ 1, 2 })                                   -- the host's saved damage lands late
+    NOW = 40012; M.watch_players()
+    eq(host.CurrentDamage:GetArrayNum(), 0, "late damage on the host healed")
+    local joiner = actor("Joiner", { CurrentDamage = tarray({ 1 }), LastSeenTotalDamage = 5 })
+    register("BP_FirstPersonCharacter_C", { host, joiner })
+    NOW = 40100; M.watch_players()
+    eq(joiner.CurrentDamage:GetArrayNum(), 0, "a joiner is healed when first seen")
+    NOW = 40100 + 31; joiner.CurrentDamage = tarray({ 1 }); host.CurrentDamage = tarray({ 1 }); M.watch_players()
+    eq(joiner.CurrentDamage:GetArrayNum(), 1, "normal damage later is left alone")
+    eq(host.CurrentDamage:GetArrayNum(), 1, "host outside its window too")
 end
 
 if fails == 0 then io.write(string.format("lua restore tests: %d checks, 0 failed\n", total)) else

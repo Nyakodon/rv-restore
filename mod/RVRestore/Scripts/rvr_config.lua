@@ -6,6 +6,7 @@ return {
     -- What to restore:
     restore_vehicle = true,   -- clear all RV damage and put every knocked-off panel back (shield back to full)
     restore_players = true,   -- heal every player to full health
+    join_heal_seconds = 30,   -- keep healing each player for this long after it appears (late-arriving saved damage, joiners); 0 = off
     restore_items = true,     -- put the map, tools, food, spare wheel ... back in their holders in the RV
 
     -- If an item's default holder is empty and the item is gone (not lying around within `reseat_radius`),

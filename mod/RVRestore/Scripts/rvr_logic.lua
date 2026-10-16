@@ -5,7 +5,7 @@ local M = {}
 
 local DEFAULTS = {
     settle_seconds = 4, restore_vehicle = true, restore_players = true, restore_items = true,
-    spawn_missing_items = true, reseat_radius = 3000, on_checkpoint_reached = false, verbose = true,
+    join_heal_seconds = 30, spawn_missing_items = true, reseat_radius = 3000, on_checkpoint_reached = false, verbose = true,
 }
 local CFG = {}
 do
@@ -254,6 +254,7 @@ end
 
 -- ---------------------------------------------------------------- scheduler
 local S = { pending = nil, due = 0, started = 0 }
+local seen = {}
 
 function M.request(reason)
     local now = os.time()
@@ -274,10 +275,29 @@ function M.tick()
     if ready then
         local ok, err = pcall(M.restore_all, reason)
         if not ok then log("error: " .. tostring(err)) end
+        S.loaded = true
+        seen = {} -- a new load: everyone's heal window starts now
     end
 end
 
 function M.pending() return S.pending end
+
+-- Players whose saved damage arrives AFTER the restore (clients joining, the host's own character being set up late):
+-- every character is kept healed for `join_heal_seconds` from the moment we first see it (after a load happened).
+function M.watch_players()
+    if not S.loaded or not CFG.restore_players or CFG.join_heal_seconds <= 0 then return end
+    local now = os.time()
+    for _, ch in ipairs(find_all("BP_FirstPersonCharacter_C")) do
+        if valid(ch) then
+            local id = ch:GetFullName()
+            if not seen[id] then seen[id] = now end
+            if now - seen[id] <= CFG.join_heal_seconds then
+                local ok, healed = pcall(M.heal_player, ch)
+                if ok and healed then say("healed " .. name(ch) .. " (saved damage arrived after the restore)") end
+            end
+        end
+    end
+end
 
 -- --------------------------------------------------------------------- hooks
 local PATHS = {
@@ -330,6 +350,7 @@ function M.install()
                 end
             end
             M.tick()
+            pcall(M.watch_players)
         end)
         return false
     end)
