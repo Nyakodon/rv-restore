@@ -1,0 +1,16 @@
+RVRestore - restore the RV, the players and the RV's contents when a checkpoint is loaded
+
+Needs: Linux, Steam/Proton, Python 3. Nothing else (no wheel, no extra packages).
+
+1. CLOSE the game, then:   ./rv_restore.py install
+2. Steam > game > Properties > Launch Options, paste:
+                           WINEDLLOVERRIDES="dwmapi=n,b" %command%
+   (skip if you already set it for another UE4SS mod, e.g. the rv-wheel mod)
+3. Play. Whenever a checkpoint / save is loaded it repairs the RV (all panels, shield full), heals every player
+   and puts everything in the RV (incl. the map) back in place. Host / single player only.
+
+Settings:  <game>/Ride/Binaries/Win64/ue4ss/Mods/RVRestore/Scripts/rvr_config.lua
+Remove:    ./rv_restore.py uninstall          (add --all to also remove UE4SS; it is kept while another mod needs it)
+
+Works side by side with the rv-wheel steering-wheel mod: shared UE4SS, separate files, no conflicts.
+Details: README.md      Tests: python3 -m unittest discover -s tests
