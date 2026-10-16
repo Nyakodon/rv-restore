@@ -141,15 +141,20 @@ end
 
 -- -------------------------------------------------------------------- items
 local function attached_children(ap)
-    local out = {}
-    try("GetAttachedActors", function()
-        local o = {}
-        ap:GetAttachedActors(o)
-        local arr = o.OutActors
-        if arr ~= nil then out = to_list(arr) end
-    end)
+    -- other actors attached to the point (GetAttachedActors needs 3 args and returns an opaque out-param in UE4SS,
+    -- so walk the root component's AttachChildren and ask each child for its owner)
     local n = 0
-    for _, c in ipairs(out) do if valid(c) then n = n + 1 end end
+    try("AttachChildren", function()
+        local root = ap.RootComponent
+        if not valid(root) then return end
+        root.AttachChildren:ForEach(function(_, e)
+            local c = e:get()
+            if valid(c) then
+                local o = c:GetOwner()
+                if valid(o) and not same(o, ap) then n = n + 1 end
+            end
+        end)
+    end)
     return n
 end
 
