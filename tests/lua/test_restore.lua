@@ -48,12 +48,15 @@ local function actor(nm, fields, methods)
     local calls = {}
     local a = { __calls = calls, __name = nm, __dead = false, __loc = { X = 0, Y = 0, Z = 0 }, __parent = nil, __children = {} }
     for k, v in pairs(fields or {}) do a[k] = v end
+    a.RootComponent = { IsValid = function() return true end, AttachChildren = { ForEach = function(_, cb)
+        for i, ch in ipairs(a.__children) do cb(i, { get = function() return { IsValid = function() return true end, GetOwner = function() return ch end } end }) end
+    end } }
     local base = {
         IsValid = function(self) return not self.__dead end,
         GetFName = function(self) return fname(self.__name) end,
         GetAttachParentActor = function(self) return self.__parent end,
         K2_GetActorLocation = function(self) return self.__loc end,
-        GetAttachedActors = function(self, out) out.OutActors = tarray(self.__children) end,
+        GetOwner = function(self) return self.__owner end,
     }
     for k, v in pairs(methods or {}) do base[k] = v end
     return setmetatable(a, { __index = function(t, k)
