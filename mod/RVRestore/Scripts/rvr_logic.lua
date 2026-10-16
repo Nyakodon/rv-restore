@@ -103,6 +103,26 @@ function M.heal_players()
     return healed, total
 end
 
+-- The HUD's damage bars (RV bar and player bar) keep their own copy of the damage they have shown. Clearing the damage
+-- arrays does not clear it, so the bars would keep showing the old injuries / broken parts. Drop the stale entries.
+function M.refresh_hud()
+    local cleared = 0
+    for _, bar in ipairs(find_all("WG_StructuralDamageBar_C")) do
+        if valid(bar) then
+            try("hud widgets", function()
+                bar.CurrentDamageWidgets:ForEach(function(_, e)
+                    local w = e:get()
+                    if valid(w) then w:RemoveFromParent(); cleared = cleared + 1 end
+                end)
+            end)
+            try("hud map 1", function() bar.CurrentDamageWidgets:Empty() end)
+            try("hud map 2", function() bar.CurrentDamage:Empty() end)
+            try("hud map 3", function() bar.Map:Empty() end)
+        end
+    end
+    return cleared
+end
+
 -- ------------------------------------------------------------------ vehicle
 -- Put every knocked-off panel back with the game's own repair function (what the repair tool does: it also gives
 -- the panel's shield points back), then clear the accumulated damage.
@@ -248,6 +268,9 @@ function M.restore_all(reason)
             end
         end
     end
+    if CFG.restore_vehicle or CFG.restore_players then
+        try("refresh hud", function() out[#out + 1] = "HUD: " .. M.refresh_hud() .. " stale damage marker(s) removed" end)
+    end
     log("restored after " .. tostring(reason) .. ": " .. table.concat(out, "; "))
     return true
 end
@@ -293,7 +316,10 @@ function M.watch_players()
             if not seen[id] then seen[id] = now end
             if now - seen[id] <= CFG.join_heal_seconds then
                 local ok, healed = pcall(M.heal_player, ch)
-                if ok and healed then say("healed " .. name(ch) .. " (saved damage arrived after the restore)") end
+                if ok and healed then
+                    say("healed " .. name(ch) .. " (saved damage arrived after the restore)")
+                    try("refresh hud", M.refresh_hud)
+                end
             end
         end
     end
